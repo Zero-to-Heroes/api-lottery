@@ -1,0 +1,68 @@
+# https://github.com/awslabs/serverless-application-model/blob/develop/versions/2016-10-31.md
+# Indentation needs to be set with spaces, because YAML...
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lottery
+
+Resources:
+    UpdateLotteryFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Handler: update-lottery.default
+            Runtime: nodejs18.x
+            Timeout: 10
+            MemorySize: 256
+            CodeUri: ./dist/update-lottery
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - AmazonSESFullAccess
+                - SecretsManagerReadWrite
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+            Tags:
+                LambdaName: api-update-lottery
+            AutoPublishAlias: live
+            FunctionUrlConfig:
+                AuthType: NONE
+    PickLotterWinnersFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Handler: pick-winners.default
+            Runtime: nodejs18.x
+            Timeout: 880
+            CodeUri: ./dist/pick-winners-new
+            MemorySize: 256
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - AmazonSESFullAccess
+                - SecretsManagerReadWrite
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+            Tags:
+                LambdaName: cron-pick-lottery-winners
+            Events:
+                # Populate the info on the last hour
+                LastPeriodTrigger:
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(0 8 1 * ? *) # 8:00 AM (UTC+0) on the first day of the month
+    StartNewSeasonFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Handler: start-new-season.default
+            Runtime: nodejs18.x
+            Timeout: 880
+            CodeUri: ./dist/start-new-season
+            MemorySize: 512
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - AmazonSESFullAccess
+                - SecretsManagerReadWrite
+                - AmazonS3FullAccess
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+            Tags:
+                LambdaName: cron-start-new-season
+            # Events:
+            #     # Populate the info on the last hour
+            #     LastPeriodTrigger:
+            #         Type: Schedule
+            #         Properties:
+            #             Schedule: cron(0 8 1 * ? *) # 8:00 AM (UTC+0) on the first day of the month
