@@ -43,7 +43,7 @@ Resources:
                 LastPeriodTrigger:
                     Type: Schedule
                     Properties:
-                        Schedule: cron(0 8 1 * ? *) # 8:00 AM (UTC+0) on the first day of the month
+                        Schedule: cron(0 8 ? * 2/2 *) # 8:00 AM (UTC+0) every other Monday
     StartNewSeasonFunction:
         Type: AWS::Serverless::Function
         Properties:
@@ -65,4 +65,4 @@ Resources:
                 LastPeriodTrigger:
                     Type: Schedule
                     Properties:
-                        Schedule: cron(0 1 1 * ? *) # 1:00 AM (UTC+0) on the first day of the month
+                        Schedule: cron(0 1 ? * 2/2 *) # 8:00 AM (UTC+0) every other Monday
