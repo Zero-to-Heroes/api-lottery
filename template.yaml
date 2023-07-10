@@ -60,9 +60,9 @@ Resources:
                 # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
             Tags:
                 LambdaName: cron-start-new-season
-            # Events:
-            #     # Populate the info on the last hour
-            #     LastPeriodTrigger:
-            #         Type: Schedule
-            #         Properties:
-            #             Schedule: cron(0 8 1 * ? *) # 8:00 AM (UTC+0) on the first day of the month
+            Events:
+                # Populate the info on the last hour
+                LastPeriodTrigger:
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(0 1 1 * ? *) # 1:00 AM (UTC+0) on the first day of the month
