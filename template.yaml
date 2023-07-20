@@ -39,11 +39,18 @@ Resources:
             Tags:
                 LambdaName: cron-pick-lottery-winners
             Events:
-                # Populate the info on the last hour
-                LastPeriodTrigger:
+                FirstMondayWinnerTrigger:
                     Type: Schedule
                     Properties:
-                        Schedule: cron(0 8 ? * 2/2 *) # 8:00 AM (UTC+0) every other Monday
+                        Schedule: cron(0 8 ? * 2#1 *) # 8:00 AM (UTC+0) first Monday of every month
+                ThirdMondayWinnerTrigger:
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(0 8 ? * 2#3 *) 
+                FifthMondayWinnerTrigger: # in case it's a month with 5 mondays
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(0 8 ? * 2#5 *) 
     StartNewSeasonFunction:
         Type: AWS::Serverless::Function
         Properties:
@@ -61,8 +68,15 @@ Resources:
             Tags:
                 LambdaName: cron-start-new-season
             Events:
-                # Populate the info on the last hour
-                LastPeriodTrigger:
+                FirstMondaySeasonTrigger:
                     Type: Schedule
                     Properties:
-                        Schedule: cron(0 1 ? * 2/2 *) # 8:00 AM (UTC+0) every other Monday
+                        Schedule: cron(0 1 ? * 6#1 *) # 8:00 AM (UTC+0) first Saturday of every month
+                ThirdMondaySeasonTrigger:
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(0 1 ? * 6#3 *) 
+                FifthMondaySeasonTrigger: # in case it's a month with 5 Saturdays
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(0 1 ? * 6#5 *) 

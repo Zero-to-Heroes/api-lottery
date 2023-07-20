@@ -2,10 +2,11 @@
 
 import { S3, logBeforeTimeout } from '@firestone-hs/aws-lambda-utils';
 import { AllCardsService } from '@firestone-hs/reference-data';
+import { SES } from 'aws-sdk';
 
 // Take more in case we can't get the emails for the first 4
-const LOTTERY_SEASONS_FILE = 'hearthstone/data/lottery-seasons.json';
-const LOTTERY_CONFIG_FILE = 'hearthstone/data/lottery-config.json';
+const LOTTERY_SEASONS_FILE = 'api/lottery/lottery-seasons.json';
+const LOTTERY_CONFIG_FILE = 'api/lottery/lottery-config.json';
 const BUCKET = 'static.zerotoheroes.com';
 
 // This example demonstrates a NodeJS 8.10 async handler[1], however of course you could use
@@ -34,28 +35,8 @@ export default async (event, context): Promise<any> => {
 		seasons = [];
 	}
 
-	if (!seasons.length) {
-		seasons.push({
-			id: 0,
-			date: 'default',
-			seasonName: 'Default season',
-			resourceStat: {
-				type: 'totalResourcesUsed',
-				points: 0.1,
-			},
-			constructedStat: {
-				type: 'spellsPlayed',
-				points: 1,
-			},
-			battlegroundsStat: {
-				type: 'quilboarsPlayed',
-				points: 1,
-			},
-		});
-	}
-
-	const lastSeasonId = seasons[seasons.length - 1].id;
-	const newSeasonId = isNaN(lastSeasonId) ? 1 : lastSeasonId + 1;
+	const lastSeasonId = seasons[seasons.length - 1]?.id;
+	const newSeasonId = isNaN(lastSeasonId) ? 2 : lastSeasonId + 1;
 	// Each season starts with a letter corresponding to its id, mod 26
 	const newSeasonNameStart = String.fromCharCode(65 + (newSeasonId % 26));
 	const newSeasonNameCandidates = allCards
@@ -64,11 +45,16 @@ export default async (event, context): Promise<any> => {
 		.filter((card) => card.name[0].toLowerCase() === newSeasonNameStart.toLowerCase())
 		.map((card) => card.name);
 	const newSeasonName = newSeasonNameCandidates[Math.floor(Math.random() * newSeasonNameCandidates.length)];
+	// Date of the day after tomorrow, in the YYYY-MM-DD format
+	const tomorrow = new Date();
+	tomorrow.setDate(tomorrow.getDate() + 2);
+	const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 	const newSeason: LotterySeason = {
 		id: newSeasonId,
-		// Date in the YYYY-MM-DD format
-		date: new Date().toISOString().slice(0, 10),
 		seasonName: newSeasonName,
+		// Date in the YYYY-MM-DD format
+		startDate: tomorrowStr,
+		durationInDays: 14,
 		resourceStat: pickStat(config.configuration.resourceStats),
 		constructedStat: pickStat(config.configuration.constructedStats),
 		battlegroundsStat: pickStat(config.configuration.battlegroundsStats),
@@ -76,6 +62,31 @@ export default async (event, context): Promise<any> => {
 	console.debug('new season', newSeason);
 	seasons.push(newSeason);
 	await s3.writeFile(seasons, BUCKET, LOTTERY_SEASONS_FILE);
+
+	const text = `New season started
+		${JSON.stringify(newSeason, null, 4)}
+	`;
+
+	const params: SES.Types.SendEmailRequest = {
+		Destination: {
+			ToAddresses: ['seb@firestoneapp.com'],
+		},
+		Message: {
+			Subject: {
+				Charset: 'UTF-8',
+				Data: 'Lottery new season',
+			},
+			Body: {
+				Text: {
+					Charset: 'UTF-8',
+					Data: text,
+				},
+			},
+		},
+		Source: 'seb@firestoneapp.com',
+		ReplyToAddresses: ['seb@firestoneapp.com'],
+	} as SES.Types.SendEmailRequest;
+	await new SES({ apiVersion: '2010-12-01' }).sendEmail(params).promise();
 
 	cleanup();
 	return { statusCode: 200, body: '' };
@@ -94,8 +105,9 @@ const pickStat = (stats: readonly LotteryConfigStat[]): LotteryStat => {
 
 interface LotterySeason {
 	id: number;
-	date: string;
 	seasonName: string;
+	startDate: string;
+	durationInDays: number;
 	resourceStat: LotteryStat;
 	constructedStat: LotteryStat;
 	battlegroundsStat: LotteryStat;
