@@ -42,15 +42,7 @@ Resources:
                 FirstMondayWinnerTrigger:
                     Type: Schedule
                     Properties:
-                        Schedule: cron(0 8 ? * 2#1 *) # 8:00 AM (UTC+0) first Monday of every month
-                ThirdMondayWinnerTrigger:
-                    Type: Schedule
-                    Properties:
-                        Schedule: cron(0 8 ? * 2#3 *) 
-                FifthMondayWinnerTrigger: # in case it's a month with 5 mondays
-                    Type: Schedule
-                    Properties:
-                        Schedule: cron(0 8 ? * 2#5 *) 
+                        Schedule: cron(0 8 ? * * *) # 8:00 AM (UTC+0) first Monday of every month
     StartNewSeasonFunction:
         Type: AWS::Serverless::Function
         Properties:
@@ -71,12 +63,8 @@ Resources:
                 FirstMondaySeasonTrigger:
                     Type: Schedule
                     Properties:
-                        Schedule: cron(0 1 ? * 6#1 *) # 8:00 AM (UTC+0) first Saturday of every month
-                ThirdMondaySeasonTrigger:
-                    Type: Schedule
-                    Properties:
-                        Schedule: cron(0 1 ? * 6#3 *) 
-                FifthMondaySeasonTrigger: # in case it's a month with 5 Saturdays
-                    Type: Schedule
-                    Properties:
-                        Schedule: cron(0 1 ? * 6#5 *) 
+                        Schedule: cron(0 1 ? * * *)
+                # FifthMondaySeasonTrigger: # in case it's a month with 5 Saturdays
+                #     Type: Schedule
+                #     Properties:
+                #         Schedule: cron(0 1 ? * 7#5 *) 

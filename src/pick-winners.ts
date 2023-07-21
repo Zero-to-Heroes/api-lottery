@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
-import { getConnection, logBeforeTimeout } from '@firestone-hs/aws-lambda-utils';
+import { getConnection, logBeforeTimeout, logger } from '@firestone-hs/aws-lambda-utils';
 import { SES } from 'aws-sdk';
 import { ServerlessMysql } from 'serverless-mysql';
 
@@ -11,6 +11,19 @@ const WINNERS_TO_PICK = 8;
 // the more traditional callback-style handler.
 // [1]: https://aws.amazon.com/blogs/compute/node-js-8-10-runtime-now-available-in-aws-lambda/
 export default async (event, context): Promise<any> => {
+	// This has first run on a Saturday, on 2023-07-17
+	// It should now run every two weeks, starting from that date
+	const originDate = new Date('2023-07-17');
+	const now = new Date();
+	// Check if we are on a multiple of two weeks from the original date
+	const diff = now.getTime() - originDate.getTime();
+	const diffInDays = Math.floor(diff / (1000 * 3600 * 24));
+	const diffInWeeks = Math.floor(diffInDays / 7);
+	if (diffInWeeks % 2 !== 0) {
+		logger.log('Not a new season day', diffInWeeks);
+		return { statusCode: 200, body: '' };
+	}
+
 	console.debug('event', event);
 	const cleanup = logBeforeTimeout(context);
 

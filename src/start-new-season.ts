@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
-import { S3, logBeforeTimeout } from '@firestone-hs/aws-lambda-utils';
+import { S3, logBeforeTimeout, logger } from '@firestone-hs/aws-lambda-utils';
 import { AllCardsService } from '@firestone-hs/reference-data';
 import { SES } from 'aws-sdk';
 
@@ -13,8 +13,21 @@ const BUCKET = 'static.zerotoheroes.com';
 // the more traditional callback-style handler.
 // [1]: https://aws.amazon.com/blogs/compute/node-js-8-10-runtime-now-available-in-aws-lambda/
 export default async (event, context): Promise<any> => {
-	console.debug('event', event);
+	// This has first run on a Saturday, on 2023-07-15
+	// It should now run every two weeks, starting from that date
+	const originDate = new Date('2023-07-15');
+	const now = new Date();
+	const diff = now.getTime() - originDate.getTime();
+	// Convert to a number of days (without any decimal of course)
+	const diffInDays = Math.floor(diff / (1000 * 3600 * 24));
+	logger.log('Is a new season day?', diffInDays);
+	if (diffInDays % 14 !== 0) {
+		logger.log('Not a new season day', diffInDays);
+		return { statusCode: 200, body: '' };
+	}
+
 	const cleanup = logBeforeTimeout(context);
+	logger.debug('event', event);
 
 	const allCards = new AllCardsService();
 	await allCards.initializeCardsDb();
@@ -23,7 +36,7 @@ export default async (event, context): Promise<any> => {
 	const s3 = new S3();
 	const configStr = await s3.readContentAsString(BUCKET, LOTTERY_CONFIG_FILE, 1);
 	const config: LotteryConfig = JSON.parse(configStr);
-	console.debug('loaded config', config);
+	logger.debug('loaded config', config);
 
 	// Get the current season file from S3
 	let seasons: LotterySeason[] = [];
@@ -31,7 +44,7 @@ export default async (event, context): Promise<any> => {
 		const seasonsStr = await s3.readContentAsString(BUCKET, LOTTERY_SEASONS_FILE, 1);
 		seasons = JSON.parse(seasonsStr) ?? [];
 	} catch (e) {
-		console.error('Could not parse seasons', e);
+		logger.error('Could not parse seasons', e);
 		seasons = [];
 	}
 
@@ -59,7 +72,7 @@ export default async (event, context): Promise<any> => {
 		constructedStat: pickStat(config.configuration.constructedStats),
 		battlegroundsStat: pickStat(config.configuration.battlegroundsStats),
 	};
-	console.debug('new season', newSeason);
+	logger.debug('new season', newSeason);
 	seasons.push(newSeason);
 	await s3.writeFile(seasons, BUCKET, LOTTERY_SEASONS_FILE);
 
