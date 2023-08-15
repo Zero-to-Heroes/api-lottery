@@ -5,9 +5,11 @@ import { AllCardsService } from '@firestone-hs/reference-data';
 import { SES } from 'aws-sdk';
 
 // Take more in case we can't get the emails for the first 4
-const LOTTERY_SEASONS_FILE = 'api/lottery/lottery-seasons.json';
+export const LOTTERY_SEASONS_FILE = 'api/lottery/lottery-seasons.json';
 const LOTTERY_CONFIG_FILE = 'api/lottery/lottery-config.json';
-const BUCKET = 'static.zerotoheroes.com';
+export const BUCKET = 'static.zerotoheroes.com';
+
+const s3 = new S3();
 
 // This example demonstrates a NodeJS 8.10 async handler[1], however of course you could use
 // the more traditional callback-style handler.
@@ -18,7 +20,6 @@ export default async (event, context): Promise<any> => {
 	const originDate = new Date('2023-07-15');
 	const now = new Date();
 	const diff = now.getTime() - originDate.getTime();
-	// Convert to a number of days (without any decimal of course)
 	const diffInDays = Math.floor(diff / (1000 * 3600 * 24));
 	logger.log('Is a new season day?', diffInDays);
 	if (diffInDays % 14 !== 0) {
@@ -33,7 +34,6 @@ export default async (event, context): Promise<any> => {
 	await allCards.initializeCardsDb();
 
 	// Get the config file from S3
-	const s3 = new S3();
 	const configStr = await s3.readContentAsString(BUCKET, LOTTERY_CONFIG_FILE, 1);
 	const config: LotteryConfig = JSON.parse(configStr);
 	logger.debug('loaded config', config);
@@ -116,7 +116,7 @@ const pickStat = (stats: readonly LotteryConfigStat[]): LotteryStat => {
 	};
 };
 
-interface LotterySeason {
+export interface LotterySeason {
 	id: number;
 	seasonName: string;
 	startDate: string;

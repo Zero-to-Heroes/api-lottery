@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 
-import { getConnection, logBeforeTimeout, logger } from '@firestone-hs/aws-lambda-utils';
+import { S3, getConnection, logBeforeTimeout, logger } from '@firestone-hs/aws-lambda-utils';
 import { SES } from 'aws-sdk';
 import { ServerlessMysql } from 'serverless-mysql';
+import { BUCKET, LOTTERY_SEASONS_FILE, LotterySeason } from './start-new-season';
+
+const s3 = new S3();
 
 // Take more in case we can't get the emails for the first 4
 const WINNERS_TO_PICK = 8;
@@ -15,24 +18,30 @@ export default async (event, context): Promise<any> => {
 	// It should now run every two weeks, starting from that date
 	const originDate = new Date('2023-07-17');
 	const now = new Date();
-	// Check if we are on a multiple of two weeks from the original date
 	const diff = now.getTime() - originDate.getTime();
 	const diffInDays = Math.floor(diff / (1000 * 3600 * 24));
-	const diffInWeeks = Math.floor(diffInDays / 7);
-	if (diffInWeeks % 2 !== 0) {
-		logger.log('Not a new season day', diffInWeeks);
+	logger.log('Is a new season day?', diffInDays);
+	if (diffInDays % 14 !== 0) {
+		logger.log('Not a new season day', diffInDays);
 		return { statusCode: 200, body: '' };
 	}
 
 	console.debug('event', event);
 	const cleanup = logBeforeTimeout(context);
 
-	// Last month, in YYYY-MM format
-	const seasonInput = event?.season;
-	const lastMonth = new Date();
-	lastMonth.setMonth(lastMonth.getMonth() - 1);
-	const season =
-		seasonInput ?? lastMonth.getFullYear() + '-' + (lastMonth.getMonth() + 1).toString().padStart(2, '0');
+	// Get the config file from S3
+	const seasonsStr = await s3.readContentAsString(BUCKET, LOTTERY_SEASONS_FILE, 1);
+	const allSeasons: readonly LotterySeason[] = JSON.parse(seasonsStr);
+	logger.debug('loaded seasons', allSeasons);
+
+	const seasonClosestToNow = allSeasons
+		.map((season) => ({ season: season, diff: new Date(season.startDate).getTime() - new Date().getTime() }))
+		// Keep only seasons that are in the past
+		.filter((season) => season.diff < 0)
+		// Ignore the current one
+		.sort((a, b) => b.diff - a.diff)[1];
+	const seasonConfig = seasonClosestToNow?.season ?? allSeasons[0];
+	const season = '' + seasonConfig?.id;
 
 	const mysql = await getConnection();
 	const allEntries: readonly RaffleEntry[] = await getAllEntries(mysql, season);
