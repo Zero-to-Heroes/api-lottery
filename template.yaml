@@ -4,7 +4,22 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Lottery
 
+
+Globals:
+    Function:
+        Environment:
+            Variables:
+                SQS_URL: !Ref SaveLotteryQueue
+
 Resources:
+    SaveLotteryQueue:
+        Type: AWS::SQS::Queue
+        Properties:
+            QueueName: deferred-save-lottery-queue
+            VisibilityTimeout: 601
+
+    # Only sends data to the SQS queue
+    # https://6wdoeqq2zemtk7aqnmnhwue5eq0fopzf.lambda-url.us-west-2.on.aws/
     UpdateLotteryFunction:
         Type: AWS::Serverless::Function
         Properties:
@@ -18,6 +33,7 @@ Resources:
             Policies:
                 - AWSLambdaVPCAccessExecutionRole
                 - AmazonSESFullAccess
+                - AmazonSQSFullAccess
                 - SecretsManagerReadWrite
                 - arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy
                 - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
@@ -26,6 +42,35 @@ Resources:
             AutoPublishAlias: live
             FunctionUrlConfig:
                 AuthType: NONE
+    
+    ProcessSaveLotteryFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Handler: process-save-lottery.default
+            Runtime: nodejs18.x
+            CodeUri: ./dist/process-save-lottery
+            MemorySize: 256
+            ReservedConcurrentExecutions: 1
+            # Layers:
+            #     - !Sub "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:14"
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - SecretsManagerReadWrite
+                - AmazonSESFullAccess
+                - AmazonSQSFullAccess
+                - arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+            Tags:
+                LambdaName: process-save-lottery
+            Timeout: 60
+            Events:
+                SQSEvent:
+                    Type: SQS
+                    Properties:
+                        Queue: !GetAtt SaveLotteryQueue.Arn
+                        BatchSize: 100
+                        MaximumBatchingWindowInSeconds: 60
+
     PickLotterWinnersFunction:
         Type: AWS::Serverless::Function
         Properties:
