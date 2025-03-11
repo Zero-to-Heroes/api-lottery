@@ -83,7 +83,15 @@ export default async (event, context): Promise<any> => {
 };
 
 const getAllEntries = async (mysql: ServerlessMysql, season: string): Promise<readonly RaffleEntry[]> => {
-	const result: readonly any[] = await mysql.query('SELECT * FROM lottery WHERE season = ?', [season]);
+	const result: readonly any[] = await mysql.query(
+		`
+		SELECT * FROM lottery 
+		WHERE season = ? AND points > 0 
+		ORDER BY points DESC 
+		LIMIT 200
+	`,
+		[season],
+	);
 	const mapped = result.map((entry) => ({
 		userName: entry.userName,
 		season: entry.season,
